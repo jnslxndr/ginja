@@ -37,7 +37,3 @@ func (s *Store) registerType(i interface{}) reflect.Type {
 func (s *Store) NameFor(i interface{}) string {
 	return s.types[reflect.TypeOf(i)][0]
 }
-
-func (s *Store) Serialize(i interface{}) ([]byte, error) {
-	return []byte("test"), nil
-}

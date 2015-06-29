@@ -2,7 +2,6 @@ package ginja
 
 import (
 	"encoding/json"
-	"math"
 	"reflect"
 	"testing"
 
@@ -16,12 +15,10 @@ func NewTestApi() *Api {
 
 type TestItem struct {
 	Name string `json:"name"`
-	Data int64  `json:"data"`
 }
 
 var testItem = TestItem{
 	Name: "A Name",
-	Data: math.MaxInt64,
 }
 
 var testItemPayload = map[string]interface{}{
@@ -45,37 +42,16 @@ func TestStoreRegister(t *testing.T) {
 }
 
 func TestDocumentMarshalJSON(t *testing.T) {
-	Convey("Document is a json.Marshaler", t, func() {
+	Convey("Empty document has data:null", t, func() {
 		d := NewDocument()
-
-		d.AddData(&ResourceObject{Id: "0", Object: testItem})
-		// d.AddMeta(Fragment{"test": "some meta"})
 
 		// So(d, ShouldImplement, (*json.Marshaler)(nil))
 
-		payload, err := json.MarshalIndent(&d, "", "  ")
+		payload, err := json.Marshal(&d)
 
-		So(string(payload), ShouldEqual, "lksdjflsdkjf")
-		So(err, ShouldNotBeNil)
+		So(string(payload), ShouldEqual, `{"data":null}`)
+		So(err, ShouldBeNil)
 
 	})
 
 }
-
-// func TestSerialize(t *testing.T) {
-// 	Convey("Serialize returns jsonapi compliant payload", t, func() {
-// 		api := NewTestApi()
-
-// 		api.Register(TestItem{})
-
-// 		ti := testItem
-
-// 		payload, err := api.Serialize(ti)
-
-// 		So(err, ShouldBeNil)
-
-// 		expected, _ := json.Marshal(testItemPayload)
-
-// 		So(string(payload), ShouldEqual, string(expected))
-// 	})
-// }
