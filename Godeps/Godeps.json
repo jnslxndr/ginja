@@ -1,0 +1,5 @@
+{
+	"ImportPath": "github.com/jens-a-e/ginja",
+	"GoVersion": "go1.4.2",
+	"Deps": []
+}
