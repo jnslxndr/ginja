@@ -114,18 +114,22 @@ type Document Fragment
 
 type ErrorDocument Document
 
+type collection []interface{}
+
+func (ic collection) String() string {
+	return "a slice of interfaces"
+}
+
 func NewDocument() Document {
 	return Document{"data": nil}
 }
 
 func NewCollectionDocument() Document {
-	return Document{"data": "[]"}
+	return Document{"data": []interface{}{}}
 }
 
 func NewErrorDocument() Document {
-	return Document{
-	// Errors: nil,
-	}
+	return Document{"errors": []interface{}{}}
 }
 
 func (d *Document) AddMeta(meta map[string]interface{}) *Document {
@@ -143,13 +147,22 @@ func (d *Document) AddData(data Resource) *Document {
 	return d
 }
 
+func (d *Document) AddError(err error) *Document {
+	errors := (*map[string]interface{})(d)
+	if (*errors)["errors"] == nil {
+		(*errors)["errors"] = []Error{}
+	}
+	(*errors)["errors"] = append((*errors)["errors"].([]interface{}), NewError(err))
+	return d
+}
+
 // func (d Document) MarshalJSON() ([]byte, error) {
 // 	payload := make(map[string]interface{})
 
 // 	return json.Marshal(&payload)
 // }
 
-func (d Document) UnmarshalJSON(data []byte) error {
-	log.Println("testing unmarshalling")
-	return nil
-}
+// func (d Document) UnmarshalJSON(data []byte) error {
+// 	log.Println("testing unmarshalling")
+// 	return nil
+// }

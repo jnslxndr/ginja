@@ -41,7 +41,7 @@ func TestStoreRegister(t *testing.T) {
 	})
 }
 
-func TestDocumentMarshalJSON(t *testing.T) {
+func TestNewDocument(t *testing.T) {
 	Convey("Empty document has data:null", t, func() {
 		d := NewDocument()
 
@@ -53,5 +53,31 @@ func TestDocumentMarshalJSON(t *testing.T) {
 		So(err, ShouldBeNil)
 
 	})
+}
 
+func TestNewCollectionDocument(t *testing.T) {
+	Convey("Empty collection document has data:[]", t, func() {
+		d := NewCollectionDocument()
+
+		// So(d, ShouldImplement, (*json.Marshaler)(nil))
+
+		payload, err := json.Marshal(&d)
+
+		So(string(payload), ShouldEqual, `{"data":[]}`)
+		So(err, ShouldBeNil)
+
+	})
+}
+
+func TestNewErrorDocument(t *testing.T) {
+	Convey("Empty error document das no data, but empty errors field", t, func() {
+		ed := NewErrorDocument()
+
+		ed.AddError(Error{Title: "lksdlfkjsdlfkj"})
+
+		payload, err := json.Marshal(&ed)
+
+		So(string(payload), ShouldEqual, `{"errors":[]}`)
+		So(err, ShouldBeNil)
+	})
 }
