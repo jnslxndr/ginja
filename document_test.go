@@ -30,6 +30,10 @@ var testItemPayload = map[string]interface{}{
 	},
 }
 
+var testMetaData = map[string]interface{}{
+	"vendor": "ginja",
+}
+
 func TestStoreRegister(t *testing.T) {
 	Convey("Api can register arbitrary types", t, func() {
 		api := NewTestApi()
@@ -49,30 +53,16 @@ func TestNewDocument(t *testing.T) {
 		So(string(payload), ShouldEqual, `{"data":null}`)
 		So(err, ShouldBeNil)
 
+		Convey("adds meta data", func() {
+			d.AddMeta(testMetaData)
+			payload, err := d.MarshalJSON()
+
+			So(string(payload), ShouldEqual, `{"data":null,"meta":{"vendor":"ginja"}}`)
+			So(err, ShouldBeNil)
+		})
+
 	})
 }
-
-func TestAddData(t *testing.T) {
-	Convey("Document with simple data", t, func() {
-		d := NewDocument()
-		d.AddData(&ResourceObject{Id: "0", Object: &testItem})
-		payload, err := json.Marshal(&d)
-
-		So(string(payload), ShouldEqual, `{"data":{"type":"testitem","id":"0","attributes":{"name":"A Name"}}}`)
-		So(err, ShouldBeNil)
-	})
-}
-
-func BenchmarkNewDocument1000(b *testing.B) {
-	ro := &ResourceObject{Id: "0", Object: &testItem}
-	var d Document
-	for n := 0; n < b.N; n++ {
-		d = NewDocument()
-		d.AddData(ro)
-		d.MarshalJSON()
-	}
-}
-
 func TestNewCollectionDocument(t *testing.T) {
 	Convey("Empty collection document has data:[]", t, func() {
 		d := NewCollectionDocument()
@@ -94,5 +84,51 @@ func TestNewErrorDocument(t *testing.T) {
 
 		So(string(payload), ShouldEqual, `{"errors":[]}`)
 		So(err, ShouldBeNil)
+		Convey("adds meta data", func() {
+			ed.AddMeta(testMetaData)
+			payload, err := ed.MarshalJSON()
+
+			So(string(payload), ShouldEqual, `{"errors":[],"meta":{"vendor":"ginja"}}`)
+			So(err, ShouldBeNil)
+		})
+
 	})
+}
+
+func TestAddData(t *testing.T) {
+	Convey("Document with simple data", t, func() {
+		d := NewDocument()
+		d.AddData(&ResourceObject{Id: "0", Object: &testItem})
+		payload, err := d.MarshalJSON()
+
+		So(d.Meta, ShouldBeEmpty)
+
+		So(string(payload), ShouldEqual, `{"data":{"type":"testitem","id":"0","attributes":{"name":"A Name"}}}`)
+		So(err, ShouldBeNil)
+	})
+}
+
+func TestAddError(t *testing.T) {
+	Convey("Adding errors", t, func() {
+		d := NewDocument()
+		d.AddError(NewError("test error"))
+
+		So(d.Errors, ShouldNotBeEmpty)
+
+		payload, err := d.MarshalJSON()
+
+		So(string(payload), ShouldEqual, `{"errors":[{"title":"test error"}]}`)
+		So(err, ShouldBeNil)
+	})
+}
+
+// Benchmarks
+func BenchmarkNewDocument1000(b *testing.B) {
+	ro := &ResourceObject{Id: "0", Object: &testItem}
+	var d Document
+	for n := 0; n < b.N; n++ {
+		d = NewDocument()
+		d.AddData(ro)
+		d.MarshalJSON()
+	}
 }

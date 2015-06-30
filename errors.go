@@ -1,5 +1,7 @@
 package ginja
 
+import "fmt"
+
 /* From: jsonapi.org:
 An error object MAY have the following members:
 
@@ -18,19 +20,30 @@ An error object MAY have the following members:
 */
 
 type Error struct {
-	Id      string `json:"id"`
-	Status  int    `json:"status"`
-	Code    string `json:"code"`
-	Title   string `json:"title"`
-	Details string `json:"detail"`
+	Id      string `json:"id,omitempty"`
+	Status  int    `json:"status,omitempty"`
+	Code    string `json:"code,omitempty"`
+	Title   string `json:"title,omitempty"`
+	Details string `json:"detail,omitempty"`
 }
 
 func (e Error) Error() string {
 	return e.Title
 }
 
-func NewError(err error) Error {
+func NewError(err interface{}) Error {
+	var title string
+	switch err.(type) {
+	case error:
+		title = err.(error).Error()
+	case fmt.Stringer:
+		title = err.(fmt.Stringer).String()
+	case string:
+		title = err.(string)
+	default:
+		title = "Unknown error occurred"
+	}
 	return Error{
-		Title: err.Error(),
+		Title: title,
 	}
 }

@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/gin-gonic/gin"
-	"github.com/imdario/mergo"
 )
 
 type GinApi struct {
@@ -19,23 +18,10 @@ type GinApi struct {
 
 // New returns a new ginja.Api struct
 func New(server *gin.Engine, config Config, middleware ...gin.HandlerFunc) *GinApi {
-	c := defaultConfig
-
-	setDebug := config.Debug
-	shouldDebug := false
-	if setDebug {
-		shouldDebug = config.Debug
-	}
-
-	mergo.MergeWithOverwrite(&c, config)
-
-	if setDebug {
-		c.Debug = shouldDebug
-	}
-
+	config.ApplyDefaults()
 	api := &GinApi{
-		RouterGroup: server.Group(c.buildUrl()),
-		Api:         Api{Config: c},
+		RouterGroup: server.Group(config.buildUrl()),
+		Api:         Api{Config: config},
 	}
 
 	api.init()
@@ -52,22 +38,25 @@ func New(server *gin.Engine, config Config, middleware ...gin.HandlerFunc) *GinA
 	return api
 }
 
+func contentTypeSetter(isDebug bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if isDebug {
+			c.Header("Content-type", "application/json")
+		} else {
+			c.Header("Content-type", "application/vnd.api+json")
+		}
+		c.Next()
+	}
+}
+
 func (a *GinApi) init() *GinApi {
-	if !a.Debug {
+	if a.Debug == false {
 		gin.SetMode(gin.ReleaseMode)
 	} else {
 		gin.SetMode(gin.DebugMode)
 	}
 
-	a.Use(func(c *gin.Context) {
-		if a.Debug {
-			c.Header("Content-type", "application/json")
-		} else {
-			c.Header("Content-type", "application/vnd.api+json")
-		}
-
-		c.Next()
-	})
+	a.Use(contentTypeSetter(a.Debug))
 
 	if a.Debug {
 		config, _ := json.MarshalIndent(a.Config, "  ", "  ")
@@ -137,9 +126,9 @@ type ErrorDocument Document
 
 type collection []interface{}
 
-func (ic collection) String() string {
-	return "a slice of interfaces"
-}
+// func (ic collection) String() string {
+// 	return "a slice of interfaces"
+// }
 
 func NewDocument() Document {
 	return Document{}
@@ -187,13 +176,19 @@ func (d Document) MarshalJSON() ([]byte, error) {
 	if len(d.Errors) > 0 || d.isError {
 		payload := errorDocumentPool.Get().(*errorDocument)
 		payload.Errors = d.Errors
-		payload.Meta = d.Meta
+		payload.Meta = nil
+		if len(d.Meta) > 0 {
+			payload.Meta = d.Meta
+		}
 		defer errorDocumentPool.Put(payload)
 		return json.Marshal(&payload)
 	} else {
 		payload := documentPool.Get().(*document)
 		payload.Data = d.Data
-		payload.Meta = d.Meta
+		payload.Meta = nil
+		if len(d.Meta) > 0 {
+			payload.Meta = d.Meta
+		}
 		defer documentPool.Put(payload)
 		return json.Marshal(&payload)
 	}
