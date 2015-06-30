@@ -1,5 +1,7 @@
 package ginja
 
+import "github.com/imdario/mergo"
+
 type Config struct {
 	Namespace  string
 	Version    string
@@ -19,5 +21,21 @@ var (
 )
 
 func (c *Config) buildUrl() string {
-	return c.Namespace + "/v" + c.Version
+	return "/" + c.Namespace + "/v" + c.Version
+}
+
+func (c *Config) ApplyDefaults() {
+	// config := defaultConfig
+
+	setDebug := !c.Debug
+	var shouldDebug bool
+	if setDebug {
+		shouldDebug = c.Debug
+	}
+
+	mergo.MergeWithOverwrite(c, defaultConfig)
+
+	if setDebug {
+		c.Debug = shouldDebug
+	}
 }
