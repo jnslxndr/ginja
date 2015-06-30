@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"sync"
 
 	"github.com/gin-gonic/gin"
 	"github.com/imdario/mergo"
@@ -80,37 +81,57 @@ func (a *GinApi) init() *GinApi {
 type Resource interface {
 	GetId() string
 	Attributes() interface{}
-	setType(interface{})
-	getType() reflect.Type
+	// setType(interface{})
+	getType() string
 }
 
 type ResourceObject struct {
-	Id           string
-	resourceType reflect.Type `jons:"-"`
-	Object       interface{}
+	Id     string
+	Object interface{}
 }
 
 func (r ResourceObject) GetId() string {
 	return r.Id
 }
 
-func (r ResourceObject) setType(i interface{}) {
-	r.resourceType = reflect.TypeOf(i)
+func (r ResourceObject) getType() string {
+	if reflect.TypeOf(r.Object).Kind() == reflect.Ptr {
+		return strings.ToLower(reflect.TypeOf(r.Object).Elem().Name())
+	} else {
+		return strings.ToLower(reflect.TypeOf(r.Object).Name())
+	}
 }
 
-func (r ResourceObject) getType() reflect.Type {
-	return reflect.TypeOf(r.Object)
-}
-
-func (r *ResourceObject) Attributes() interface{} {
+func (r ResourceObject) Attributes() interface{} {
 	return &r.Object
 }
 
-type member *struct{}
+type Fragment struct {
+	Type       string      `json:"type"`
+	Id         string      `json:"id"`
+	Attributes interface{} `json:"attributes,omitempty"`
+}
 
-type Fragment map[string]interface{}
+type Document struct {
+	Data    interface{}
+	Meta    map[string]interface{}
+	Errors  []Error
+	isError bool
+}
 
-type Document Fragment
+type metaObject struct {
+	Meta map[string]interface{} `json:"meta,omitempty"`
+}
+
+type document struct {
+	Data interface{} `json:"data"`
+	metaObject
+}
+
+type errorDocument struct {
+	Errors []Error `json:"errors"`
+	metaObject
+}
 
 type ErrorDocument Document
 
@@ -121,46 +142,62 @@ func (ic collection) String() string {
 }
 
 func NewDocument() Document {
-	return Document{"data": nil}
+	return Document{}
 }
 
 func NewCollectionDocument() Document {
-	return Document{"data": []interface{}{}}
+	return Document{Data: []Fragment{}}
 }
 
 func NewErrorDocument() Document {
-	return Document{"errors": []interface{}{}}
+	return Document{Errors: []Error{}, isError: true}
 }
 
 func (d *Document) AddMeta(meta map[string]interface{}) *Document {
-	(*(*map[string]interface{})(d))["meta"] = meta
+	d.Meta = meta
 	return d
 }
 
-func (d *Document) AddData(data Resource) *Document {
-	data.setType(reflect.TypeOf(data))
-	(*(*map[string]interface{})(d))["data"] = Fragment{
-		"type":       strings.ToLower(data.getType().Name()),
-		"id":         data.GetId(),
-		"attributes": data.Attributes(),
+func (d *Document) AddData(data Resource) {
+	d.Data = Fragment{
+		Type:       data.getType(),
+		Id:         data.GetId(),
+		Attributes: data.Attributes(),
 	}
-	return d
 }
 
 func (d *Document) AddError(err error) *Document {
-	errors := (*map[string]interface{})(d)
-	if (*errors)["errors"] == nil {
-		(*errors)["errors"] = []Error{}
-	}
-	(*errors)["errors"] = append((*errors)["errors"].([]interface{}), NewError(err))
+	d.Errors = append(d.Errors, NewError(err))
 	return d
 }
 
-// func (d Document) MarshalJSON() ([]byte, error) {
-// 	payload := make(map[string]interface{})
+var documentPool = sync.Pool{
+	New: func() interface{} {
+		return &document{}
+	},
+}
 
-// 	return json.Marshal(&payload)
-// }
+var errorDocumentPool = sync.Pool{
+	New: func() interface{} {
+		return &errorDocument{}
+	},
+}
+
+func (d Document) MarshalJSON() ([]byte, error) {
+	if len(d.Errors) > 0 || d.isError {
+		payload := errorDocumentPool.Get().(*errorDocument)
+		payload.Errors = d.Errors
+		payload.Meta = d.Meta
+		defer errorDocumentPool.Put(payload)
+		return json.Marshal(&payload)
+	} else {
+		payload := documentPool.Get().(*document)
+		payload.Data = d.Data
+		payload.Meta = d.Meta
+		defer documentPool.Put(payload)
+		return json.Marshal(&payload)
+	}
+}
 
 // func (d Document) UnmarshalJSON(data []byte) error {
 // 	log.Println("testing unmarshalling")

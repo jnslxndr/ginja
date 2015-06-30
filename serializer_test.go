@@ -9,8 +9,7 @@ import (
 )
 
 func NewTestApi() *Api {
-	api := &Api{}
-	return api
+	return &Api{}
 }
 
 type TestItem struct {
@@ -45,14 +44,33 @@ func TestNewDocument(t *testing.T) {
 	Convey("Empty document has data:null", t, func() {
 		d := NewDocument()
 
-		// So(d, ShouldImplement, (*json.Marshaler)(nil))
-
 		payload, err := json.Marshal(&d)
 
 		So(string(payload), ShouldEqual, `{"data":null}`)
 		So(err, ShouldBeNil)
 
 	})
+}
+
+func TestAddData(t *testing.T) {
+	Convey("Document with simple data", t, func() {
+		d := NewDocument()
+		d.AddData(&ResourceObject{Id: "0", Object: &testItem})
+		payload, err := json.Marshal(&d)
+
+		So(string(payload), ShouldEqual, `{"data":{"type":"testitem","id":"0","attributes":{"name":"A Name"}}}`)
+		So(err, ShouldBeNil)
+	})
+}
+
+func BenchmarkNewDocument1000(b *testing.B) {
+	ro := &ResourceObject{Id: "0", Object: &testItem}
+	var d Document
+	for n := 0; n < b.N; n++ {
+		d = NewDocument()
+		d.AddData(ro)
+		d.MarshalJSON()
+	}
 }
 
 func TestNewCollectionDocument(t *testing.T) {
@@ -65,15 +83,12 @@ func TestNewCollectionDocument(t *testing.T) {
 
 		So(string(payload), ShouldEqual, `{"data":[]}`)
 		So(err, ShouldBeNil)
-
 	})
 }
 
 func TestNewErrorDocument(t *testing.T) {
 	Convey("Empty error document das no data, but empty errors field", t, func() {
 		ed := NewErrorDocument()
-
-		ed.AddError(Error{Title: "lksdlfkjsdlfkj"})
 
 		payload, err := json.Marshal(&ed)
 
